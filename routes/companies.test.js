@@ -7,10 +7,15 @@ const db = require('../db');
 let testCompany;
 
 beforeEach(async () => {
-    const result = await db.query(
+    const companyResult = await db.query(
         `INSERT INTO companies (code, name, description) VALUES ('apple', 'Apple Computer', 'Maker of OSX.') RETURNING code, name, description`
     );
-    testCompany = result.rows[0];
+    const invoiceResult = await db.query(
+        `INSERT INTO invoices (comp_Code, amt, paid, paid_date) VALUES ('apple', 300, true, '2018-01-01') RETURNING id, comp_Code, amt, paid, add_date, paid_date`
+    );
+    const result = companyResult.rows[0];
+    result.invoices = invoiceResult.rows;
+    testCompany = result;
 });
 
 afterEach(async () => {
@@ -25,11 +30,19 @@ describe('GET /companies', () => {
     test('Get a list with one company', async () => {
         const res = await request(app).get('/companies');
         expect(res.statusCode).toBe(200);
-        expect(res.body).toEqual({ companies: [testCompany] });
+        expect(res.body).toEqual({
+            companies: [
+                {
+                    code: testCompany.code,
+                    description: testCompany.description,
+                    name: testCompany.name,
+                },
+            ],
+        });
     });
 });
 
-describe('GET /companies/:id', () => {
+describe('GET /companies/:code', () => {
     test('Get a list with one company', async () => {
         const res = await request(app).get(`/companies/${testCompany.code}`);
         expect(res.statusCode).toBe(200);
@@ -44,14 +57,13 @@ describe('GET /companies/:id', () => {
 describe('POST /companies', () => {
     test('Creates a single company', async () => {
         const res = await request(app).post('/companies').send({
-            code: 'deez',
             name: 'DeezNutz',
             description: 'joke company',
         });
         expect(res.statusCode).toBe(201);
         expect(res.body).toEqual({
             company: {
-                code: 'deez',
+                code: 'deeznutz',
                 name: 'DeezNutz',
                 description: 'joke company',
             },

@@ -37,9 +37,13 @@ router.post('/', async function (req, res, next) {
 
         const result = await db.query(
             `INSERT INTO invoices (comp_Code, amt, paid, paid_date)
-            VALUES ($1, $2, $3, $4) RETURNING id, comp_code, amt, paid, add_date, paid_date`,
+            VALUES ($1, $2, $3, $4) RETURNING comp_code, amt, paid, paid_date`,
             [comp_Code, amt, paid, paid_date]
         );
+
+        if (result.rows.length === 0) {
+            throw new ExpressError(`Invalid entry`, 404);
+        }
 
         return res.status(201).json({ invoice: result.rows[0] });
     } catch (err) {
@@ -50,14 +54,30 @@ router.post('/', async function (req, res, next) {
 router.put('/:id', async function (req, res, next) {
     try {
         const { id } = req.params;
-        const { comp_Code, amt, paid, paid_date } = req.body;
+        const { amt, paid } = req.body;
+        let paidDate;
+
+        if (paid === true) {
+            let date = new Date();
+
+            let day = date.getDate();
+            let month = date.getMonth() + 1;
+            let year = date.getFullYear();
+
+            let currentDate = `${day}-${month}-${year}`;
+            paidDate = currentDate;
+        } else if (paid === false) {
+            paidDate = null;
+        }
 
         const result = await db.query(
-            `UPDATE invoices SET comp_Code=$1, amt=$2, paid=$3, paid_date=$4
-           WHERE id = $5
+            `UPDATE invoices SET amt=$1, paid=$2, paid_date=$3
+           WHERE id = $4
            RETURNING id, comp_Code, amt, paid, add_date, paid_date`,
-            [comp_Code, amt, paid, paid_date, id]
+            [amt, paid, paidDate, id]
         );
+
+        console.log(result.rows);
 
         if (result.rows.length === 0) {
             throw new ExpressError(
